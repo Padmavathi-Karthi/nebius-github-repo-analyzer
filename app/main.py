@@ -51,4 +51,3 @@ def analyze_repo(owner: str, repo: str):
         "important_files": ["README.md", "requirements.txt", "main.py", "llm_service.py", "github_service.py"],
         "ai_analysis": ai_analysis
     }
-print("DEBUG: THIS MAIN FILE IS RUNNING")
