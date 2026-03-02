@@ -86,7 +86,7 @@ http://127.0.0.1:8000/analyze?owner=psf&repo=requests
   "ai_analysis": {
     "summary": "Requests is a simple and elegant HTTP library for Python, widely used for sending HTTP requests.",
     "tech_stack": ["Python", "FastAPI", "Nebius API", "GitHub API"],
-    "complexity": "Moderate",
+    "complexity": "Intermediate",
     "suggestions": [
       "Add contribution guidelines for new developers",
       "Include architecture overview in README",
