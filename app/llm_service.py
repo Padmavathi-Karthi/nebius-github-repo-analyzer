@@ -23,7 +23,7 @@ def analyze_repository_with_llm(readme: str, files: list):
         - suggestions: list of improvements
     """
 
-    # 🔹 Build prompt for LLM
+    # Build prompt for LLM
     
     prompt = f"""
     You are a software repository analysis assistant.
@@ -52,7 +52,7 @@ def analyze_repository_with_llm(readme: str, files: list):
     - Tech stack should reflect the languages and tools used in the repository.
     """
 
-    # 🔹 Call Nebius LLM API
+    # Call Nebius LLM API
     response = client.chat.completions.create(
         model="deepseek-ai/DeepSeek-R1-0528",
         messages=[
@@ -63,26 +63,19 @@ def analyze_repository_with_llm(readme: str, files: list):
         max_tokens=500
     )
 
-    # 🔹 Clean output
+    # Clean output
     content = response.choices[0].message.content.strip()
     content = re.sub(r"```json|```", "", content).strip()
 
-    # 🔹 Parse JSON safely
+    # Parse JSON safely
     try:
         parsed_json = json.loads(content)
-
-        # Ensure all keys exist
-        # parsed_json.setdefault("summary", "No summary generated")
-        #parsed_json.setdefault("tech_stack", ["Python", "FastAPI", "Nebius API", "GitHub API"])
-        # parsed_json.setdefault("complexity", "Intermediate")
-        # parsed_json.setdefault("suggestions", [])
-
     except json.JSONDecodeError:
         # Fallback if model returns bad format
         parsed_json = {
             "summary": "Requests is a simple and elegant HTTP library for Python, widely used for sending HTTP requests.",
             "tech_stack": ["Python", "HTTP", "LLM Integration", "GitHub API"],
-            "complexity": "Moderate",
+            "complexity": "Intermediate",
             "suggestions": ["Add contribution guidelines for new developers", "Include architecture overview in README",
                 "Provide API usage examples"]
         }
