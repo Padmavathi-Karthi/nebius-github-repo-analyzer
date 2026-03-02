@@ -33,7 +33,7 @@ def get_repo_files(owner: str, repo: str, path=""):
             else:
                 fname = item["name"]
                 all_files.append(fname)
-                if fname in ASSESSMENT_FILES:
+                if fname.lower() in [f.lower() for f in ASSESSMENT_FILES]:
                     important_files.append(fname)
 
     return {
