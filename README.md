@@ -33,7 +33,7 @@ This project was developed as part of the **Nebius Academy Assessment**, demonst
 ---
 
 ## Project Structure
-
+```text
 nebius_github_repo_api/
 │
 ├── app/
@@ -44,7 +44,7 @@ nebius_github_repo_api/
 ├── .env.example #.env is not committed
 ├── requirements.txt # Project dependencies
 └── README.md # Project documentation
-
+```
 ---
 
 ## How It Works
