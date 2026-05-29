@@ -1,7 +1,7 @@
 # app/github_service.py
 import requests
 
-ASSESSMENT_FILES = [
+DEFAULT_PRIORITY_FILES = [
         "main.py",
         "llm_service.py",
         "github_service.py",
@@ -13,7 +13,7 @@ GITHUB_API_BASE = "https://api.github.com/repos"
 
 def get_repo_files(owner: str, repo: str, path=""):
     """
-    Fetch GitHub repo files, return only files relevant for this assessment.
+    Fetch repository files and identify a small set of high-signal files for downstream LLM analysis.
     """
 
 
@@ -33,7 +33,7 @@ def get_repo_files(owner: str, repo: str, path=""):
             else:
                 fname = item["name"]
                 all_files.append(fname)
-                if fname.lower() in [f.lower() for f in ASSESSMENT_FILES]:
+                if fname.lower() in [f.lower() for f in DEFAULT_PRIORITY_FILES]:
                     important_files.append(fname)
 
     return {
