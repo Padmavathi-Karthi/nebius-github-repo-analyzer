@@ -1,53 +1,102 @@
 # app/main.py
+from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
 import requests
-from fastapi import FastAPI
+
 from app.github_service import get_repo_files
 from app.llm_service import analyze_repository_with_llm
-from dotenv import load_dotenv
 
-load_dotenv()  # Load NEBIUS_API_KEY
+load_dotenv()
 
-app = FastAPI(title="AI GitHub Repo Analyzer (Nebius)")
+app = FastAPI(
+    title="AI GitHub Repository Analyzer",
+    version="1.0.0",
+)
 
+
+# ---------------------------------------------------------------------
+# Health Check
+# ---------------------------------------------------------------------
 
 @app.get("/")
 def home():
-    return {"message": "Nebius AI Repo Analyzer is running 🚀"}
+    return {
+        "message": "AI GitHub Repository Analyzer is running"
+    }
 
+
+# ---------------------------------------------------------------------
+# Repository Analysis Endpoint
+# ---------------------------------------------------------------------
 
 @app.get("/analyze")
 def analyze_repo(owner: str, repo: str):
     """
-    Full AI-powered repo analysis
-    Example:
-    /analyze?owner=psf&repo=requests
+    Analyze a public GitHub repository using Nebius LLM.
     """
-    # Step 1: Fetch GitHub repo data
-    repo_data = get_repo_files(owner, repo)
-    all_files = repo_data.get("files", [])
-    important_files = repo_data.get("important_files", [])
 
-    # Step 2: Fetch README content
-    readme_file_name = next(
-        (f for f in all_files if "readme" in f.lower()), None
-    )
+    try:
+        # -------------------------------------------------------------
+        # Step 1: Fetch repository file structure
+        # -------------------------------------------------------------
 
-    readme_content = ""
-    if readme_file_name:
-        url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/{readme_file_name}"
-        res = requests.get(url)
-        if res.status_code == 200:
-            readme_content = res.text
+        repo_data = get_repo_files(owner, repo)
 
-    # Step 3: Send data to Nebius LLM for analysis
-    ai_analysis = analyze_repository_with_llm(
-        readme=readme_content,
-        files=all_files
-    )
+        all_files = repo_data.get("files", [])
+        important_files = repo_data.get("important_files", [])
 
-    # Step 4: Return clean, structured JSON
-    return {
-        "repository": f"{owner}/{repo}",
-        "important_files": ["README.md", "requirements.txt", "main.py", "llm_service.py", "github_service.py"],
-        "ai_analysis": ai_analysis
-    }
+        if not all_files:
+            raise HTTPException(
+                status_code=404,
+                detail="Repository not found or contains no accessible files.",
+            )
+
+        # -------------------------------------------------------------
+        # Step 2: Fetch README content
+        # -------------------------------------------------------------
+
+        readme_file = next(
+            (f for f in all_files if "readme" in f.lower()),
+            None,
+        )
+
+        readme_content = ""
+
+        if readme_file:
+            readme_url = (
+                f"https://raw.githubusercontent.com/"
+                f"{owner}/{repo}/main/{readme_file}"
+            )
+
+            response = requests.get(readme_url, timeout=10)
+
+            if response.status_code == 200:
+                readme_content = response.text
+
+        # -------------------------------------------------------------
+        # Step 3: Generate LLM analysis
+        # -------------------------------------------------------------
+
+        ai_analysis = analyze_repository_with_llm(
+            readme=readme_content,
+            files=all_files,
+        )
+
+        # -------------------------------------------------------------
+        # Step 4: Return structured response
+        # -------------------------------------------------------------
+
+        return {
+            "repository": f"{owner}/{repo}",
+            "important_files": important_files,
+            "ai_analysis": ai_analysis,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Repository analysis failed: {str(e)}",
+        )
