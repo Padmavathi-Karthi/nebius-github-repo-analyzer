@@ -32,17 +32,18 @@ The system fetches repository metadata, extracts important project files, and ge
 ---
 
 ## Project Structure
+
 ```text
 nebius_github_repo_api/
 │
 ├── app/
-│ ├── main.py # FastAPI entry point
-│ ├── llm_service.py # Nebius LLM integration
-│ ├── github_service.py # GitHub API logic
+│ ├── main.py                # FastAPI entry point
+│ ├── llm_service.py         # Nebius LLM integration
+│ ├── github_service.py      # GitHub API logic
 │
-├── .env.example #.env is not committed
-├── requirements.txt # Project dependencies
-└── README.md # Project documentation
+├── .env.example             #.env is not committed
+├── requirements.txt         # Project dependencies
+└── README.md                # Project documentation
 ```
 ---
 
