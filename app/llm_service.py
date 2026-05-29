@@ -2,82 +2,133 @@
 import os
 import json
 import re
+from typing import List, Dict, Any
+
 from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()  # loads NEBIUS_API_KEY from .env
 
+# ---------------------------------------------------------------------
+# LLM Client (Nebius OpenAI-compatible endpoint)
+# ---------------------------------------------------------------------
+
 client = OpenAI(
     base_url="https://api.tokenfactory.nebius.com/v1/",
-    api_key=os.environ.get("NEBIUS_API_KEY")
+    api_key=os.getenv("NEBIUS_API_KEY"),
 )
 
+# ---------------------------------------------------------------------
+# Prompt Builder
+# ---------------------------------------------------------------------
 
-def analyze_repository_with_llm(readme: str, files: list):
+def build_prompt(readme: str, files: List[str]) -> str:
+    return f"""
+You are a precise software repository analysis engine.
+
+Your task:
+Analyze the repository input and return ONLY valid JSON.
+
+STRICT OUTPUT RULES:
+- Output must be valid JSON only
+- No explanations
+- No markdown
+- No reasoning steps
+- No extra text
+
+JSON FORMAT:
+{{
+  "summary": "1-2 sentence description of the project",
+  "tech_stack": ["languages", "frameworks", "tools"],
+  "complexity": "Beginner | Intermediate | Advanced",
+  "suggestions": ["improvement 1", "improvement 2"]
+}}
+
+REPOSITORY README:
+{readme[:3000]}
+
+REPOSITORY FILES:
+{files[:50]}
+""".strip()
+
+
+# ---------------------------------------------------------------------
+# Safe JSON Parsing
+# ---------------------------------------------------------------------
+
+def extract_json(text: str) -> Dict[str, Any]:
     """
-    Send repository data to Nebius LLM for intelligent analysis.
-    Returns structured JSON with:
-        - summary: 1-2 sentence project summary
-        - tech_stack: list of languages, frameworks, and tools
-        - complexity: Beginner | Intermediate | Advanced
-        - suggestions: list of improvements
+    Extract JSON safely from model output.
+    Handles accidental backticks or extra text.
     """
+    if not text:
+        raise ValueError("Empty LLM response")
 
-    # Build prompt for LLM
-    
-    prompt = f"""
-    You are a software repository analysis assistant.
+    # Remove markdown code blocks if present
+    cleaned = text.strip()
+    cleaned = re.sub(r"```json|```", "", cleaned).strip()
 
-    Return ONLY valid JSON. Do NOT include <think> or explanations. 
-    Do NOT include reasoning. Keep responses clean and structured.
-
-    Output format:
-
-    {{
-        "summary": "1-2 sentence summary of the project",
-        "tech_stack": ["language", "framework", "tools used"],
-        "complexity": "Beginner | Intermediate | Advanced",
-        "suggestions": ["improvement 1", "improvement 2"]
-    }}
-
-    README:
-    {readme[:3000]}
-
-    FILES:
-    {files[:50]}
-
-    Instructions:
-    - Summary must be max 2 sentences.
-    - Keep it professional and concise.
-    - Tech stack should reflect the languages and tools used in the repository.
-    """
-
-    # Call Nebius LLM API
-    response = client.chat.completions.create(
-        model="deepseek-ai/DeepSeek-R1-0528",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant"},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.2,
-        max_tokens=500
-    )
-
-    # Clean output
-    content = response.choices[0].message.content.strip()
-    content = re.sub(r"```json|```", "", content).strip()
-
-    # Parse JSON safely
+    # Try direct parse
     try:
-        parsed_json = json.loads(content)
+        return json.loads(cleaned)
     except json.JSONDecodeError:
-        # Fallback if model returns bad format
-        parsed_json = {
-            "summary": "Requests is a simple and elegant HTTP library for Python, widely used for sending HTTP requests.",
-            "tech_stack": ["Python", "HTTP", "LLM Integration", "GitHub API"],
-            "complexity": "Intermediate",
-            "suggestions": ["Add contribution guidelines for new developers", "Include architecture overview in README",
-                "Provide API usage examples"]
-        }
+        # fallback: extract first JSON object
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
 
-    return parsed_json
+
+# ---------------------------------------------------------------------
+# Main Function
+# ---------------------------------------------------------------------
+
+def analyze_repository_with_llm(readme: str, files: list) -> Dict[str, Any]:
+    """
+    Sends repository data to Nebius LLM and returns structured analysis.
+    """
+
+    prompt = build_prompt(readme, files)
+
+    last_error = None
+
+    for attempt in range(2):  # simple retry for robustness
+        try:
+            response = client.chat.completions.create(
+                model="deepseek-ai/DeepSeek-R1-0528",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a strict JSON generator for repository analysis. "
+                            "Always return valid JSON only."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                max_tokens=600,
+            )
+
+            content = response.choices[0].message.content.strip()
+            return extract_json(content)
+
+        except Exception as e:
+            last_error = e
+            continue
+
+    # -----------------------------------------------------------------
+    # Graceful fallback (non-fake, safe default)
+    # -----------------------------------------------------------------
+
+    return {
+        "summary": "Failed to generate structured analysis from LLM response.",
+        "tech_stack": [],
+        "complexity": "Unknown",
+        "suggestions": [
+            "Check LLM response format",
+            "Improve prompt consistency",
+            "Retry analysis request",
+        ],
+        "error": str(last_error),
+    }
